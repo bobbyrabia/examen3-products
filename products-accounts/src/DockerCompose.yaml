@@ -1,0 +1,60 @@
+version: '3'
+services:
+  mongo-db:
+    image: 'mongodb/mongodb-community-server:7.0.0-ubi8-20230824T101728Z'
+    container_name: mongo-test-db
+    ports:
+      - 27017:27017
+  postgres-db:
+    image: 'postgres:latest'
+    container_name: postgres-test-db
+    ports:
+      - 5432:5432
+    environment:
+      -  POSTGRES_PASSWORD=123
+  branches-mongo:
+    image: 'rpfreire1/examen-productaccounts'
+    depends_on:
+      - mongo-db
+    container_name: branches-test
+    ports:
+      - 9091:9091
+    environment:
+      - POSTGRES_PASSWORD=123
+  products-postgres:
+    image: 'rpfreire1/examen-productaccounts'
+    depends_on:
+      - postgres-db
+    container_name: products-test
+    ports:
+      - 8080:8080
+
+  serviceregistry:
+    image: 'rpfreire1/serviceregistry:0.0.1'
+    container_name: serviceregistry
+    ports:
+      - '8760:8760'
+  configserver:
+    image: 'rpfreire1/configserver:0.0.1'
+    container_name: configserver
+    ports:
+      - '9296:9296'
+    environment:
+      - EUREKA_SERVER_ADDRESS=http://serviceregistry:8760/eureka
+    healthcheck:
+      test: ["CMD","curl","-f","http://configserver:9296/actuator/health"]
+      interval: 10s
+      timeout: 100s
+      retries: 5
+    depends_on:
+      - serviceregistry
+  cloudgateway:
+    image: 'rpfreire1/cloudgateway:0.0.1'
+    container_name: cloudgateway
+    ports:
+      - '9090:9090'
+    environment:
+      - EUREKA_SERVER_ADDRESS=http://serviceregistry:8760/eureka
+      - CONFIG_SERVER_URL=configserver
+    depends_on:
+      - configserver
